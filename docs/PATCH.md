@@ -9,6 +9,9 @@
 | **Antigravity IDE 2.0** (`resources/bin/language_server`) | проверка авторизации в скомпилированном бинарике бэкенда | `hasValidAuth=true (x64)` |
 | **CLI `agy`** | два гейта eligibility в Go-бинаре (x86-64 / ARM64) | `eligibility screen off (x64)` ×2 |
 
+Точные байтовые дельты, смещения и disasm для подтверждённых версий (IDE 2.8.1 / CLI 1.1.13)
+зафиксированы в [docs/REVERSE.md](REVERSE.md).
+
 Патч **не** трогает и не может трогать:
 - облачные лицензии/доступ Google (ошибка `#3501` — см. [docs/ERRORS.md](ERRORS.md));
 - ответы Google API (HTTP 400/500);
