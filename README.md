@@ -9,6 +9,102 @@ regional-patch applied inside an **offline** Docker sandbox (`--network none`).
 
 ---
 
+## 🤖 Для человека: запуск ИИ-агента
+
+Репозиторий спроектирован так, что установку и патч выполняет **ИИ-агент** (агенту
+достаточно этого README + `docs/`). Твоя задача — подготовить входные данные и передать
+агенту готовый промпт.
+
+### Шаг 0. Подготовь (1–2 минуты)
+
+| Что | Требование |
+|---|---|
+| ОС | Linux x86-64 (проверено на Ubuntu 24.04) |
+| Docker | установлен, твой пользователь в группе `docker`: `sudo usermod -aG docker "$USER"` (затем выйти/зайти) |
+| Официальные архивы | скачай сам (в репо бинарей нет): IDE `Antigravity(...).tar.gz` (~160 МБ) и CLI `agy_cli_linux_x64.tar.gz` (~55 МБ). Положи в `~/Downloads` **или** подготовь точные пути до файлов |
+| sudo | понадобится один раз — для SUID-шага `chrome-sandbox` |
+| Google-аккаунт | один аккаунт для входа в IDE/CLI (вход делает **человек**, в инкогнито) |
+| Интернет | да, на время первого клона репозитория и патчера |
+
+### Шаг 1. Скопируй промпт агенту
+
+```text
+Выполни полную установку Antigravity IDE + CLI (agy) на этом Linux-хосте по репозиторию.
+
+Источники:
+- репо: https://github.com/VS-212/agy.git (клонируй локально: git clone https://github.com/VS-212/agy.git && cd agy)
+- архивы:
+    IDE = <ПУТЬ_К_АРХИВУ_IDE>
+    CLI = <ПУТЬ_К_АРХИВУ_CLI>
+  (если пути не указаны — ищи в ~/Downloads по именам Antigravity*.tar.gz и agy_cli_linux_x64.tar.gz)
+- sudo для SUID-шага: доступен / недоступен   (укажи)
+
+Порядок (не менять!):
+1) bash scripts/05_check_env.sh   — проверить предусловия (docker, tar, PATH, архивы)
+2) bash scripts/10_sources.sh     — подготовить источники; если пути архивов уходят через
+   env:   AGY_IDE_ARCHIVE=<путь>  AGY_CLI_ARCHIVE=<путь> bash scripts/10_sources.sh
+3) bash scripts/20_build.sh       — собрать образ песочницы safe-ag-patcher:latest
+4) bash scripts/30_patch.sh       — патч строго офлайн; должен вернуть RC=0
+5) bash scripts/40_install.sh     — установка IDE/CLI + .desktop
+6) bash scripts/50_postinstall.sh — отключить автоапдейты + проверить патч (идемпотентно)
+
+Ограничения:
+- контейнеры с сетью НЕ запускать (единственное исключение — 90_check_updates.sh, только
+  по явному разрешению пользователя);
+- проприетарные бинари Google в репозиторий НЕ коммитить;
+- если 30_patch.sh вернул код 2/3/4 («signature not found») — НЕ обходить и НЕ «чинить»
+  самому: сообщи и смотри docs/UPDATES.md, docs/REVERSE.md;
+- если выпала ошибка #3501 — это серверная лицензия Google (docs/ERRORS.md), локально
+  не лечится: зафиксируй и не трать время на обход.
+
+Финальный отчёт (обязательно):
+- вывод статуса патча:
+  docker run --rm --network none -v "$HOME/apps":/app/apps -v "$HOME/.local/bin":/app/bin \
+    safe-ag-patcher:latest status /app/apps/antigravity-ide/resources/bin/language_server /app/bin/agy
+  (ожидается: language_server : patched, agy : patched);
+- версии установленных компонентов;
+- оставшийся ручной SUID-шаг (если sudo недоступен);
+- все ошибки и что сделано по ним.
+```
+
+### Шаг 2. Если агент запускается в командной строке — что передать
+
+Единственное, что обычно нужно внести в командную строку — это пути к архивам (остальное
+скрипты находят сами):
+
+```bash
+# положи пути в окружение ОДИН раз (свои пути замени)
+export AGY_IDE_ARCHIVE="$HOME/Downloads/Antigravity(1).tar.gz"
+export AGY_CLI_ARCHIVE="$HOME/Downloads/agy_cli_linux_x64.tar.gz"
+
+cd ~/agy
+bash scripts/05_check_env.sh   && \
+bash scripts/10_sources.sh     && \
+bash scripts/20_build.sh       && \
+bash scripts/30_patch.sh       && \
+bash scripts/40_install.sh     && \
+bash scripts/50_postinstall.sh
+```
+
+Альтернатива без `export` — передать переменные только на один шаг:
+
+```bash
+AGY_IDE_ARCHIVE=/путь/иде.tar.gz AGY_CLI_ARCHIVE=/путь/agy.tar.gz bash scripts/10_sources.sh
+```
+
+### Шаг 3. После агента — что остаётся тебе (человеку)
+
+1. Один `sudo`-шаг, если агент не смог его выполнить:
+   ```bash
+   sudo chown root:root ~/apps/antigravity-ide/chrome-sandbox && sudo chmod 4755 ~/apps/antigravity-ide/chrome-sandbox
+   ```
+2. Вход в IDE (ярлык Antigravity) — в **инкогнито-браузере одним Google-аккаунтом**.
+3. Если увидишь `#3501` — это серверная лицензия Google, локально не лечится (детали в `docs/ERRORS.md`).
+
+> 💡 Агент сам найдёт все детали в `docs/`: INSTALL, PATCH, REVERSE, ERRORS, UPDATES, SOURCES.
+
+---
+
 ## ⚠️ Дисклеймер
 
 - Репозиторий содержит **только скрипты и документацию**. Проприетарные бинари Google
