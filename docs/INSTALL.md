@@ -40,7 +40,7 @@ docker ps   # должно работать без sudo
 | # | Скрипт | Что делает | Типичный вывод |
 |---|---|---|---|
 | 0 | `05_check_env.sh` | проверка предусловий: Linux, docker/группа, tar/gzip/git/curl, PATH, наличие архивов | `Предусловия OK` / списки `[FAIL]` |
-| 1 | `10_sources.sh` | копирует архивы в `sources/` (пути можно передать через `AGY_IDE_ARCHIVE`/`AGY_CLI_ARCHIVE`), клонирует патчер (или из `AGY_PATCHER_DIR`), пишет sha256 и пин-коммит в `state/` | `sources/... .tar.gz`, `коммит патчера: <sha>` |
+| 1 | `10_sources.sh` | копирует архивы в `sources/` (пути можно передать через `AGY_IDE_ARCHIVE`/`AGY_CLI_ARCHIVE`), клонирует патчер в порядке **канонический → зеркало → `AGY_PATCHER_DIR`**, пишет sha256 и коммит патчера в `state/` | `sources/... .tar.gz`, `коммит патчера: <sha>` |
 | 2 | `20_build.sh` | `docker build` образа **safe-ag-patcher:latest** из локальных `sources/` (патчер копируется в образ, рантайм ничего не качает) | `Successfully tagged safe-ag-patcher:latest` |
 | 3 | `30_patch.sh` | распаковывает архивы в `final/`, считает sha256 **до**, запускает патчер в контейнере **`--network none`**, сверяет суммы **после** | `language_server : patched`, `agy : patched`, `RC=0` |
 | 4 | `40_install.sh` | ставит IDE в `~/apps/antigravity-ide`, CLI в `~/.local/bin/agy`, создаёт `.desktop`, проверяет статус патча | `ГОТОВО!` + пути |

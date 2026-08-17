@@ -28,7 +28,7 @@ agy/
 ├── scripts/             ← основной конвейер
 │   ├── 05_check_env.sh       проверка предусловий (docker, tar, PATH, архивы)
 │   ├── 00_uninstall.sh      полная зачистка Antigravity с бекапами
-│   ├── 10_sources.sh        подготовка источников: архивы + клон патчера (pin) + sha256
+│   ├── 10_sources.sh        подготовка источников: архивы + клон патчера (canonical→mirror→local) + sha256
 │   ├── 20_build.sh          docker build образа safe-ag-patcher (из локальных копий)
 │   ├── 30_patch.sh          распаковка архивов + ПАТЧ (контейнер --network none)
 │   ├── 40_install.sh        установка: ~/apps/antigravity-ide + ~/.local/bin/agy + .desktop
@@ -65,7 +65,7 @@ bash scripts/05_check_env.sh     # проверить готовность (dock
 #    AGY_IDE_ARCHIVE=/путь/иде.tar.gz AGY_CLI_ARCHIVE=/путь/agy.tar.gz bash scripts/10_sources.sh
 
 # 4. Конвейер (порядок важен!)
-bash scripts/10_sources.sh   # архивы в sources/ + клон патчера + sha256
+bash scripts/10_sources.sh   # архивы в sources/ + клон патчера (canonical→зеркало→локально) + sha256
 bash scripts/20_build.sh     # собрать песочницу safe-ag-patcher:latest
 bash scripts/30_patch.sh     # распаковка + патч (БЕЗ сети), контрольные суммы
 bash scripts/40_install.sh   # установка IDE/CLI + .desktop

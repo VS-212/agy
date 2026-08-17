@@ -7,7 +7,9 @@
 #   AGY_IDE_ARCHIVE   путь напрямую к архиву IDE (переопределяет поиск в AGY_DOWNLOAD_DIR)
 #   AGY_CLI_ARCHIVE   путь напрямую к архиву CLI
 #   AGY_PATCHER_URL   URL git-клона патчера (по умолч. официальный GitHub)
+#   AGY_PATCHER_MIRROR_URL  запасное зеркало патчера (по умолч. VS-212/open-antigravity-patcher-mirror)
 #   AGY_PATCHER_DIR   локальная копия патчера на случай недоступного GitHub
+# Порядок источников: канонический → зеркало → AGY_PATCHER_DIR (лок.)
 # Пример:
 #   AGY_IDE_ARCHIVE=/srv/antigravity.tar.gz \
 #   AGY_CLI_ARCHIVE=/srv/agy_cli_linux_x64.tar.gz ./scripts/10_sources.sh
@@ -22,6 +24,7 @@ DL_DIR="${AGY_DOWNLOAD_DIR:-$HOME/Downloads}"
 IDE_ARCHIVE="${AGY_IDE_ARCHIVE:-$DL_DIR/Antigravity(1).tar.gz}"
 CLI_ARCHIVE="${AGY_CLI_ARCHIVE:-$DL_DIR/agy_cli_linux_x64.tar.gz}"
 PATCHER_URL="${AGY_PATCHER_URL:-https://github.com/AvenCores/open-antigravity-patcher.git}"
+PATCHER_MIRROR_URL="${AGY_PATCHER_MIRROR_URL:-https://github.com/VS-212/open-antigravity-patcher-mirror.git}"
 PATCHER_DIR="${AGY_PATCHER_DIR:-}"
 
 MISSING=0
@@ -52,16 +55,23 @@ fi
 # ---------- 2. Патчер (локальная копия, коммит фиксируется) ----------
 log "Готовлю sources/patcher/ (зафиксированный коммит)"
 if [ ! -d sources/patcher/.git ]; then
-  echo "  клонирую: $PATCHER_URL"
+  echo "  1) канонический источник: $PATCHER_URL"
   if timeout 60 git clone --depth 1 "$PATCHER_URL" sources/patcher 2>/dev/null; then
-    echo "  клонирован."
-  elif [ -n "$PATCHER_DIR" ] && [ -d "$PATCHER_DIR" ]; then
-    mkdir -p sources
-    rm -rf sources/patcher
-    cp -a "$PATCHER_DIR" sources/patcher
-    echo "  GitHub недоступен — скопирован из AGY_PATCHER_DIR: $PATCHER_DIR"
+    echo "  клонирован (канонический источник)."
   else
-    echo "  PREF: GitHub недоступен и AGY_PATCHER_DIR не задан — патчер не готов."
+    rm -rf sources/patcher
+    echo "  2) канонический недоступен — fallback-зеркало: $PATCHER_MIRROR_URL"
+    if timeout 60 git clone --depth 1 "$PATCHER_MIRROR_URL" sources/patcher 2>/dev/null; then
+      echo "  клонирован (fallback-зеркало)."
+    else
+      rm -rf sources/patcher
+      if [ -n "$PATCHER_DIR" ] && [ -d "$PATCHER_DIR" ]; then
+        cp -a "$PATCHER_DIR" sources/patcher
+        echo "  3) сеть непригодна — скопировано из AGY_PATCHER_DIR: $PATCHER_DIR"
+      else
+        echo "  PREF: все источники патчера недоступны — патчер не готов."
+      fi
+    fi
   fi
 else
   echo "  sources/patcher уже существует (pin), оставляю."

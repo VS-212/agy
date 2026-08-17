@@ -39,7 +39,33 @@ bash scripts/10_sources.sh
 ```
 
 Также можно переопределить каталог поиска (`AGY_DOWNLOAD_DIR`) и URL/копию патчера
-(`AGY_PATCHER_URL`, `AGY_PATCHER_DIR`) — см. шапку `scripts/10_sources.sh`.
+(`AGY_PATCHER_URL`, `AGY_PATCHER_MIRROR_URL`, `AGY_PATCHER_DIR`) — см. шапку
+`scripts/10_sources.sh`.
+
+## Зеркало патчера (fallback)
+
+Патчер — внешняя GPL-зависимость всего конвейера и его главный SPOF. Для робастности мы
+держим **форк-снапшот** под своим контролем:
+
+`https://github.com/VS-212/open-antigravity-patcher-mirror`
+(HEAD на момент создания — `fed74634…`, тот же коммит, что задеплоен в этом гайде).
+
+`10_sources.sh` берёт патчер в таком порядке:
+
+1. **канонический источник** — `AvenCores/open-antigravity-patcher` (свежие сигнатуры);
+2. **зеркало** — `VS-212/open-antigravity-patcher-mirror` (fallback, если канонический
+   недоступен/деопубликован);
+3. **локальная копия** — `AGY_PATCHER_DIR` (полный офлайн).
+
+> ⚠️ Зеркало — это **снапшот**, а не автосинк. Форки GitHub переживают удаление родителя.
+> Когда осознанно переходишь на новую проверенную пару «Antigravity + патчер», синкай
+> зеркало вручную одним движением:
+> ```bash
+> git clone --bare https://github.com/VS-212/open-antigravity-patcher-mirror.git /tmp/m
+> cd /tmp/m && git fetch origin '+refs/heads/*:refs/heads/*' && git push --mirror https://github.com/VS-212/open-antigravity-patcher-mirror.git
+> ```
+> Или через GitHub UI — «Fork → Sync fork → Update branch». Автосинка нет намеренно:
+> новый upstream-коммит не должен «втихую» менять детерминированный деплой.
 
 ## Проверка целостности
 
