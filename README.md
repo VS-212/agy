@@ -26,11 +26,13 @@ agy/
 ├── README.md            ← этот файл (обзор + быстрый старт)
 ├── LICENSE              ← MIT (наши скрипты и доки)
 ├── scripts/             ← основной конвейер
+│   ├── 05_check_env.sh       проверка предусловий (docker, tar, PATH, архивы)
 │   ├── 00_uninstall.sh      полная зачистка Antigravity с бекапами
-│   ├── 10_sources.sh        подготовка источников: архивы + клон патчера (pin)
+│   ├── 10_sources.sh        подготовка источников: архивы + клон патчера (pin) + sha256
 │   ├── 20_build.sh          docker build образа safe-ag-patcher (из локальных копий)
 │   ├── 30_patch.sh          распаковка архивов + ПАТЧ (контейнер --network none)
 │   ├── 40_install.sh        установка: ~/apps/antigravity-ide + ~/.local/bin/agy + .desktop
+│   ├── 50_postinstall.sh    идемпотентная доводка: автоапдейты off + проверка патча
 │   ├── 90_check_updates.sh  РУЧНОЙ выпуск патчера в интернет (разовый --rm контейнер)
 │   └── reset-login.sh       сброс авторизации/аккаунта (файлы + keyring + кеши)
 ├── build/                ← песочница
@@ -41,7 +43,8 @@ agy/
     ├── INSTALL.md            пошаговая установка
     ├── PATCH.md              как устроен патч и как им пользоваться
     ├── ERRORS.md             ошибки: #3501, HTTP 400/500, «сразу заходит», keyring
-    └── UPDATES.md            обновления и повторный патчинг
+    ├── UPDATES.md            обновления и повторный патчинг
+    └── SOURCES.md            где брать официальные архивы и как скормить их конвейеру
 ```
 
 ## 🚀 Быстрый старт (Linux, Ubuntu 24.04)
@@ -52,18 +55,20 @@ git clone https://github.com/VS-212/agy.git && cd agy
 
 # 2. Предусловия: Docker (системный демон), полезные утилиты
 #    sudo apt install docker.io && sudo usermod -aG docker "$USER"   # после этого выйти/зайти
+bash scripts/05_check_env.sh     # проверить готовность (docker, tar, PATH, архивы)
 
-# 3. Скачай ОФИЦИАЛЬНЫЕ архивы сам (binaries не в репо):
+# 3. Официальные архивы (бинар без сети в репо не лежит):
 #      - IDE:  Antigravity(...).tar.gz     (~160 МБ)
 #      - CLI:  agy_cli_linux_x64.tar.gz    (~55 МБ)
-#    положи в ~/Downloads с именами Antigravity(1).tar.gz и agy_cli_linux_x64.tar.gz
-#    (или измени имена в scripts/10_sources.sh)
+#    положи в ~/Downloads (см. docs/SOURCES.md), либо передай пути напрямую:
+#    AGY_IDE_ARCHIVE=/путь/иде.tar.gz AGY_CLI_ARCHIVE=/путь/agy.tar.gz bash scripts/10_sources.sh
 
 # 4. Конвейер (порядок важен!)
-bash scripts/10_sources.sh   # архивы в sources/ + клон патчера
+bash scripts/10_sources.sh   # архивы в sources/ + клон патчера + sha256
 bash scripts/20_build.sh     # собрать песочницу safe-ag-patcher:latest
 bash scripts/30_patch.sh     # распаковка + патч (БЕЗ сети), контрольные суммы
 bash scripts/40_install.sh   # установка IDE/CLI + .desktop
+bash scripts/50_postinstall.sh  # автоапдейты off + проверка патча (идемпотентно)
 
 # 5. Один ручной шаг — SUID chrome-sandbox (иначе IDE только с --no-sandbox):
 sudo chown root:root ~/apps/antigravity-ide/chrome-sandbox && sudo chmod 4755 ~/apps/antigravity-ide/chrome-sandbox

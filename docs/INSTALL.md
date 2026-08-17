@@ -39,17 +39,21 @@ docker ps   # должно работать без sudo
 
 | # | Скрипт | Что делает | Типичный вывод |
 |---|---|---|---|
-| 1 | `10_sources.sh` | копирует архивы в `sources/`, клонирует патчер (или восстанавливает из резервной копии), пишет sha256 и пин-коммит в `state/` | `sources/... .tar.gz`, `коммит патчера: <sha>` |
+| 0 | `05_check_env.sh` | проверка предусловий: Linux, docker/группа, tar/gzip/git/curl, PATH, наличие архивов | `Предусловия OK` / списки `[FAIL]` |
+| 1 | `10_sources.sh` | копирует архивы в `sources/` (пути можно передать через `AGY_IDE_ARCHIVE`/`AGY_CLI_ARCHIVE`), клонирует патчер (или из `AGY_PATCHER_DIR`), пишет sha256 и пин-коммит в `state/` | `sources/... .tar.gz`, `коммит патчера: <sha>` |
 | 2 | `20_build.sh` | `docker build` образа **safe-ag-patcher:latest** из локальных `sources/` (патчер копируется в образ, рантайм ничего не качает) | `Successfully tagged safe-ag-patcher:latest` |
 | 3 | `30_patch.sh` | распаковывает архивы в `final/`, считает sha256 **до**, запускает патчер в контейнере **`--network none`**, сверяет суммы **после** | `language_server : patched`, `agy : patched`, `RC=0` |
 | 4 | `40_install.sh` | ставит IDE в `~/apps/antigravity-ide`, CLI в `~/.local/bin/agy`, создаёт `.desktop`, проверяет статус патча | `ГОТОВО!` + пути |
+| 5 | `50_postinstall.sh` | идемпотентная доводка: автоапдейты IDE/CLI выключить, проверить патч, напомнить про SUID | `app-update.yml -> .bak`, `функция agy добавлена` |
 
 ```bash
 cd agy   # корень клона репо
+bash scripts/05_check_env.sh
 bash scripts/10_sources.sh
 bash scripts/20_build.sh
 bash scripts/30_patch.sh
 bash scripts/40_install.sh
+bash scripts/50_postinstall.sh
 ```
 
 > #### Что делать, если 30_patch.sh вернул не-0
@@ -60,13 +64,15 @@ bash scripts/40_install.sh
 
 ## 3. Ручные шаги (один раз)
 
-**а) SUID chrome-sandbox** — чтобы IDE запускалась без root и без `--no-sandbox`:
+Большинство доводок сделает `50_postinstall.sh` (автоапдейты, защита CLI, проверка патча).
+Остаётся только одно ручное действие — **SUID chrome-sandbox**, чтобы IDE запускалась без
+root и без `--no-sandbox`:
 
 ```bash
 sudo chown root:root ~/apps/antigravity-ide/chrome-sandbox && sudo chmod 4755 ~/apps/antigravity-ide/chrome-sandbox
 ```
 
-**б) PATH** (если `~/.local/bin` ещё не в PATH):
+Если `~/.local/bin` не в PATH — добавь (разово):
 
 ```bash
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc

@@ -10,24 +10,22 @@ eligibility. Поэтому:
 | **IDE 2.0** | `resources/app-update.yml` переименован в `.app-update.yml.bak` (приложение не знает URL манифеста) | `ls ~/apps/antigravity-ide/resources/ | grep app-update` |
 | **CLI `agy`** | функция в `~/.bashrc` подменяет команду: `agy() { command agy --update-check=false "$@"; }` | `type agy` → видна функция |
 
-> ⚠️ `app-update.yml` «восстанавливается» при переустановке IDE из свежего архива —
-> после каждой переустановки переименовывай его снова:
-> ```bash
-> mv ~/apps/antigravity-ide/resources/app-update.yml{,.bak}
-> ```
+> ⚠️ `app-update.yml` «восстанавливается» при переустановке IDE из свежего архива.
+> После каждой переустановки запускай `bash scripts/50_postinstall.sh` — он сам переименует
+> `app-update.yml` в `.bk`, добавит функцию `agy()` в `~/.bashrc` и проверит патч (идемпотентно).
 
 ## Новая версия Antigravity (IDE/CLI)
 
 1. Скачай свежий официальный архив сам (бинар в репо не живёт).
-2. Положи в `~/Downloads` (имена как в `10_sources.sh`).
+2. Положи в `~/Downloads` или передай путь через `AGY_IDE_ARCHIVE`/`AGY_CLI_ARCHIVE`.
 3. Повтори конвейер:
    ```bash
    bash scripts/10_sources.sh
    bash scripts/30_patch.sh     # распаковка + патч (без сети)
    bash scripts/40_install.sh   # установка
+   bash scripts/50_postinstall.sh
    ```
-4. После 40_install:
-   - снова отключи автоапдейт IDE (см. выше);
+4. После 40_install / 50_postinstall:
    - проверь патч (`status`);
    - вход — как обычно, одним аккаунтом.
 
