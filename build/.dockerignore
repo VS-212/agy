@@ -1,0 +1,10 @@
+final/
+state/
+scripts/
+ide-src/
+cli-src/
+patcher-local/
+Downloads/
+*.tar.gz
+*.deb
+*.log
