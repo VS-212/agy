@@ -8,11 +8,18 @@ eligibility. Поэтому:
 | Компонент | Как отключено | Как проверить |
 |---|---|---|
 | **IDE 2.0** | `resources/app-update.yml` переименован в `.app-update.yml.bak` (приложение не знает URL манифеста) | `ls ~/apps/antigravity-ide/resources/ | grep app-update` |
-| **CLI `agy`** | функция в `~/.bashrc` подменяет команду: `agy() { command agy --update-check=false "$@"; }` | `type agy` → видна функция |
+| **CLI `agy`** | сервер обновлений заблокирован в `/etc/hosts`: `127.0.0.1 antigravity-cli-auto-updater-974169037036.us-central1.run.app` (URL из [SOURCES.md](SOURCES.md)) | `grep antigravity-cli-auto-updater /etc/hosts` |
 
 > ⚠️ `app-update.yml` «восстанавливается» при переустановке IDE из свежего архива.
 > После каждой переустановки запускай `bash scripts/50_postinstall.sh` — он сам переименует
-> `app-update.yml` в `.bk`, добавит функцию `agy()` в `~/.bashrc` и проверит патч (идемпотентно).
+> `app-update.yml` в `.bk`, заблокирует апдейтер CLI в `/etc/hosts` (один раз спросит sudo),
+> вычистит устаревшую функцию `agy()` из `~/.bashrc` и проверит патч (идемпотентно).
+
+> ⚠️ **Старые установки (важно).** В **CLI 1.1.13** флаг `--update-check` удалён. Прежняя
+> защита — функция в `~/.bashrc` `agy() { command agy --update-check=false "$@"; }` —
+> **ломает запуск CLI**: любой вызов `agy` падает с `flags provided but not defined:
+> -update-check` (exit 2), не дойдя до старта. Если у тебя такая функция — удали её
+> (или прогони `50_postinstall.sh`, он сделает это сам) и выполни блокировку в `/etc/hosts`.
 
 ## Новая версия Antigravity (IDE/CLI)
 

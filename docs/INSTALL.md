@@ -44,7 +44,7 @@ docker ps   # должно работать без sudo
 | 2 | `20_build.sh` | `docker build` образа **safe-ag-patcher:latest** из локальных `sources/` (патчер копируется в образ, рантайм ничего не качает) | `Successfully tagged safe-ag-patcher:latest` |
 | 3 | `30_patch.sh` | распаковывает архивы в `final/`, считает sha256 **до**, запускает патчер в контейнере **`--network none`**, сверяет суммы **после** | `language_server : patched`, `agy : patched`, `RC=0` |
 | 4 | `40_install.sh` | ставит IDE в `~/apps/antigravity-ide`, CLI в `~/.local/bin/agy`, создаёт `.desktop`, проверяет статус патча | `ГОТОВО!` + пути |
-| 5 | `50_postinstall.sh` | идемпотентная доводка: автоапдейты IDE/CLI выключить, проверить патч, напомнить про SUID | `app-update.yml -> .bak`, `функция agy добавлена` |
+| 5 | `50_postinstall.sh` | идемпотентная доводка: автоапдейты IDE/CLI выключить, проверить патч, напомнить про SUID | `app-update.yml -> .bak`, `апдейтер CLI заблокирован в /etc/hosts` |
 
 ```bash
 cd agy   # корень клона репо
@@ -64,7 +64,8 @@ bash scripts/50_postinstall.sh
 
 ## 3. Ручные шаги (один раз)
 
-Большинство доводок сделает `50_postinstall.sh` (автоапдейты, защита CLI, проверка патча).
+Большинство доводок сделает `50_postinstall.sh` (автоапдейты, блокировка апдейтера CLI —
+один раз спросит пароль sudo для `/etc/hosts`, проверка патча).
 Остаётся только одно ручное действие — **SUID chrome-sandbox**, чтобы IDE запускалась без
 root и без `--no-sandbox`:
 
