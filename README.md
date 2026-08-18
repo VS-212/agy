@@ -132,6 +132,27 @@ bash scripts/30_patch.sh && bash scripts/40_install.sh && bash scripts/50_postin
 
 ---
 
+## 🌐 Сетевой слой: комната `ai_chamber` (Smart DNS)
+
+Патч снимает локальный гейт, но `HTTP 400 User location is not supported` — проверка
+**на стороне Google**. Для запуска `agy`/`hermes`/`kg` с foreign-IP используется
+изолированная netns-комната со **Smart DNS (Xbox DNS)**: `cloudcode-pa`,
+`generativelanguage`, `api.anthropic.com` и другие эндпоинты уходят через прокси-пул
+за рубежом, остальной трафик — напрямую. Без VPN-приложений и без правки
+хост-`resolv.conf` (DNS комнаты живёт в `/etc/netns/ai_chamber/`).
+
+```bash
+sudo bash scripts/ai_chamber_setup.sh              # создать комнату
+sudo bash scripts/ai_chamber_setup.sh --systemd    # + автозапуск при загрузке
+sudo bash scripts/ai_chamber_setup.sh --purge      # удалить всё
+```
+
+Запуск агентов внутри комнаты: `ai-agy`, `ai-hermes`, `ai-kg chat` (алиасы —
+в `~/.bashrc`), либо `ai-room` для интерактивного шелла. Детали, сравнение
+провайдеров и fallback — в [`docs/AI_CHAMBER.md`](docs/AI_CHAMBER.md).
+
+---
+
 ## 🤖 Установка / обновление через ИИ-агента
 
 Репозиторий спроектирован так, что всю механику выполняет **ИИ-агент** (человеку нужно
@@ -191,6 +212,7 @@ agy/
 │   ├── 40_install.sh         установка: ~/apps/antigravity-ide + ~/.local/bin/agy + .desktop
 │   ├── 50_postinstall.sh     идемпотентная доводка: автоапдейты off + проверка патча
 │   ├── 90_check_updates.sh   РУЧНОЙ выпуск патчера в интернет (разовый --rm контейнер)
+│   ├── ai_chamber_setup.sh   СЕТЕВОЙ СЛОЙ: netns-комната со Smart DNS (Xbox) — см. docs/AI_CHAMBER.md
 │   └── reset-login.sh        сброс авторизации/аккаунта (файлы + keyring + кеши)
 ├── build/                ← песочница
 │   ├── Dockerfile            образ из python:3.12-slim, non-root, cap-drop ALL
@@ -198,6 +220,7 @@ agy/
 │   └── driver.py             неинтерактивный драйвер (без диалогов/captcha/браузера)
 └── docs/
     ├── AGENT.md              ★ каноническая инструкция для ИИ-агента (все сценарии + готовый промпт)
+    ├── AI_CHAMBER.md         ★ комната ai_chamber: Smart DNS (Xbox), сетевой гео-обход для agy/hermes/kg
     ├── INSTALL.md            пошаговая установка
     ├── PATCH.md              как устроен патч и как им пользоваться
     ├── REVERSE.md            байтовые дельты патча (offset, asm, подтверждения) по версиям
@@ -228,7 +251,7 @@ agy/
 | Ошибка | Причина | Решение |
 |---|---|---|
 | `#3501 You do not have a valid license` | **Серверная** лицензия Google для аккаунта/региона | Локально НЕ лечится: ждать/сменить аккаунт с лицензией; подробно [`docs/ERRORS.md`](docs/ERRORS.md) |
-| `HTTP 400 User location is not supported` | Регион определён как неподдерживаемый | Патч снимает локальный гейт; при наличии — DNS/Xbox-обход или смена аккаунта |
+| `HTTP 400 User location is not supported` | Регион определён как неподдерживаемый | Патч снимает локальный гейт; серверную проверку закрывает комната `ai_chamber` (Smart DNS) — [`docs/AI_CHAMBER.md`](docs/AI_CHAMBER.md); крайний случай — смена аккаунта |
 | `HTTP 500 Internal Server Error` | Внутренний отказ на стороне Google | Менять аккаунт (официальный регион/платная подписка) |
 | `30_patch.sh` вернул код `2/3/4` | Патчер не знает сигнатуру этой версии бинарей | Обнови патчер: `docs/UPDATES.md` (не «чини» бинарь вручную) |
 | `agy` падает при запуске: `flags provided but not defined: -update-check` | Устаревшая функция `agy()` из старого `~/.bashrc` (флаг удалён в CLI 1.1.13) | Удали функцию из `~/.bashrc` и прогони `50_postinstall.sh` — он это сделает сам (блокирует апдейтер в `/etc/hosts`) |
