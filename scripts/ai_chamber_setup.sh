@@ -62,6 +62,8 @@ echo "🌐 Uplink интерфейс: $UPLINK"
 # ---------- teardown (используется и при --purge, и перед пересозданием) ----------
 teardown() {
   iptables -D FORWARD -s "$NET" -j "$CHAIN" 2>/dev/null || true
+  iptables -D FORWARD -s "$NET" -o "$UPLINK" -j ACCEPT 2>/dev/null || true
+  iptables -D FORWARD -i "$UPLINK" -o "$VHOST" -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || true
   iptables -F "$CHAIN" 2>/dev/null || true
   iptables -X "$CHAIN" 2>/dev/null || true
   iptables -t nat -D POSTROUTING -s "$NET" -o "$UPLINK" -j MASQUERADE 2>/dev/null || true
@@ -122,14 +124,26 @@ EOF
 chmod 644 "/etc/netns/$NS/resolv.conf"
 
 # ---------- 6. Блокировка «чужих» DNS из комнаты ----------
-# ДНС-запросы из комнаты наружу разрешены ТОЛЬКО на наши резолверы.
+# Из комнаты наружу DNS (UDP/TCP:53) разрешён ТОЛЬКО на наши резолверы;
+# любой другой DNS (8.8.8.8 и пр.) — DROP. Всё остальное — не затрагивается.
+# ⚠ НЕ забыть --dport 53: без него DROP снимет ВЕСЬ TCP/UDP комнаты.
 iptables -N "$CHAIN" 2>/dev/null || iptables -F "$CHAIN"
-iptables -A "$CHAIN" -p udp -d "$DNS1" -j ACCEPT
-iptables -A "$CHAIN" -p udp -d "$DNS2" -j ACCEPT
-iptables -A "$CHAIN" -p udp -j DROP
-iptables -A "$CHAIN" -p tcp -d "$DNS1" -j ACCEPT
-iptables -A "$CHAIN" -p tcp -d "$DNS2" -j ACCEPT
-iptables -A "$CHAIN" -p tcp -j DROP
+iptables -A "$CHAIN" -p udp --dport 53 -d "$DNS1" -j ACCEPT
+iptables -A "$CHAIN" -p udp --dport 53 -d "$DNS2" -j ACCEPT
+iptables -A "$CHAIN" -p udp --dport 53 -j DROP
+iptables -A "$CHAIN" -p tcp --dport 53 -d "$DNS1" -j ACCEPT
+iptables -A "$CHAIN" -p tcp --dport 53 -d "$DNS2" -j ACCEPT
+iptables -A "$CHAIN" -p tcp --dport 53 -j DROP
+
+# Обвязка FORWARD — работает и при DROP-политике хоста (docker делает именно так):
+#   FORWARD[1] = DNS-цепочка для исходящего из комнаты
+#   FORWARD[2] = исходящий из комнаты в интернет (не-DNS) — разрешён
+#   FORWARD[3] = возврат уже-установленных соединений в комнату (от NAT)
+# (вставляем в обратном порядке, т.к. -I кладёт правило на позицию 1)
+iptables -C FORWARD -i "$UPLINK" -o "$VHOST" -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || \
+  iptables -I FORWARD 1 -i "$UPLINK" -o "$VHOST" -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -C FORWARD -s "$NET" -o "$UPLINK" -j ACCEPT 2>/dev/null || \
+  iptables -I FORWARD 1 -s "$NET" -o "$UPLINK" -j ACCEPT
 iptables -C FORWARD -s "$NET" -j "$CHAIN" 2>/dev/null || \
   iptables -I FORWARD 1 -s "$NET" -j "$CHAIN"
 
@@ -154,14 +168,15 @@ ip netns exec "$NS" bash -c '
   fi
 '
 echo
-echo "--- TCP до прокси-пула 87.228.47.204:443 (гео-обход):"
-if timeout 5 bash -c "</dev/tcp/87.228.47.204/443" 2>/dev/null; then
-  echo "  TCP OK"
+printf '--- HTTP(S) до прокси-пула (SNI daily-cloudcode-pa): '
+if ip netns exec "$NS" timeout 6 bash -c 'exec 3<>/dev/tcp/87.228.47.204/443' 2>/dev/null; then
+  echo "TCP OK"
 else
-  echo "  TCP FAIL (возможно, пул сменился)"
+  echo "TCP FAIL (достижимость/фильтрация)"
 fi
 echo "--- IPv6 внутри комнаты: $(ip netns exec "$NS" sysctl -n net.ipv6.conf.all.disable_ipv6)"
-echo "--- DNS-блокировка активна (цепочка $CHAIN): $(iptables -L FORWARD -n | grep -c "$CHAIN") правило"
+echo "--- Правила FORWARD комнаты:"
+iptables -L FORWARD -n -v --line-numbers 2>/dev/null | grep -E "AI_CHAMBER|10.77.0.0/30|veth" | head -8 || true
 echo
 echo "Комната готова. Вход:"
 echo "  sudo ip netns exec $NS bash"
