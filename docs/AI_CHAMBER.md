@@ -36,6 +36,10 @@ sudo bash scripts/ai_chamber_setup.sh --purge      # удалить комнат
 ```bash
 # runuser сам НЕ читает ~/.profile => PATH без ~/.local/bin.
 # Обёртка bash -lc подхватывает PATH и окружение из .profile.
+# ВАЖНО: сначала снимаем старые одноимённые АЛИАСЫ — при повторном source
+# bash разворачивает их в парсере и ломает определение функций (`ai-room() {`
+# превращается в `sudo ...() {` -> syntax error near unexpected token `(`).
+unalias ai-room ai-agy ai-kg ai-hermes 2>/dev/null || true
 ai-env() {
   local cmd="$1"; shift
   local tail=""
