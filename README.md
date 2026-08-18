@@ -56,17 +56,79 @@ docker run --rm --network none \
 
 ---
 
-## 🛡️ Обновления — только вручную
+## 🛡️ Обновления и апдейтер — как заблокировать, разблокировать, обновить
 
 Автопроверка обновлений **отключена намеренно**: автоапдейт заменил бы пропатченные
-бинари свежими (НЕпропатченными). Три сценария обновления — все в
-[`docs/UPDATES.md`](docs/UPDATES.md):
+бинари свежими (НЕпропатченными) — вернулся бы экран eligibility. Поэтому:
 
-| Сценарий | Коротко |
-|---|---|
-| Новая версия Antigravity (IDE/CLI) | скачать свежие архивы → `10_sources.sh` → `30_patch.sh` → `40_install.sh` → `50_postinstall.sh` |
-| Новая версия патчера (если `30_patch.sh` вернул код 2/3/4) | `90_check_updates.sh` → `git -C sources/patcher pull` → `20_build.sh` → повторно патч/установка |
-| Патч потерялся (переустановка ОС) | `20_build.sh` → `30_patch.sh` → `40_install.sh` → `50_postinstall.sh` |
+- **IDE** блокируется переименованием `resources/app-update.yml` (делает `50_postinstall.sh`);
+- **CLI `agy`** блокируется записью в `/etc/hosts` — см. ниже.
+
+### 1. Блокировка апдейтера CLI (один раз, после установки)
+
+```bash
+echo "127.0.0.1 antigravity-cli-auto-updater-974169037036.us-central1.run.app" | sudo tee -a /etc/hosts
+```
+
+Проверка:
+
+```bash
+grep antigravity-cli-auto-updater /etc/hosts
+```
+
+> `50_postinstall.sh` делает это сам (один раз спросит пароль sudo). Повторять не нужно —
+> и скрипт, и команда идемпотентны.
+
+### 2. Разблокировка апдейтера CLI (когда захочешь вернуть автоапдейты)
+
+```bash
+sudo sed -i '/antigravity-cli-auto-updater-974169037036.us-central1.run.app/d' /etc/hosts
+```
+
+> ⚠️ После разблокировки CLI при следующем запуске сам скачает свежую версию —
+> **без патча** (экран eligibility вернётся). Разблокируй только если готов сразу
+> обновиться и заново пропатчиться по разделу 3.
+
+### 3. Как обновить на новую версию (вручную, точно по шагам)
+
+**Если вышла новая версия Antigravity (IDE/CLI):**
+
+```bash
+cd agy
+# 1) скачай свежие официальные архивы сам (в репо бинарей нет):
+#      IDE: Antigravity(...).tar.gz (~160 МБ), CLI: agy_cli_linux_x64.tar.gz (~55 МБ)
+#    положи в ~/Downloads, либо передай пути напрямую:
+#    AGY_IDE_ARCHIVE=/путь/иде.tar.gz AGY_CLI_ARCHIVE=/путь/agy.tar.gz
+
+bash scripts/10_sources.sh        # архивы -> sources/ (перезапишет старые) + sha256
+bash scripts/30_patch.sh          # распаковка + патч (БЕЗ сети); ожидается RC=0
+bash scripts/40_install.sh        # установка IDE/CLI + .desktop
+bash scripts/50_postinstall.sh    # снова отключить автоапдейты + проверка патча
+```
+
+После обновления:
+
+- проверь статус патча (команда из «Быстрого старта») — ожидается
+  `language_server : patched`, `agy : patched`;
+- если sudo был недоступен — выполни SUID-шаг и вход из «Быстрого старта»;
+- запись в `/etc/hosts` при обновлении **не пропадает** — она в системном файле,
+  блокировку повторять не нужно.
+
+**Если `30_patch.sh` вернул код `2/3/4`** («signature not found» — патчер не знает
+сигнатуру новой версии): сначала обнови сам патчер, затем повтори патч:
+
+```bash
+bash scripts/90_check_updates.sh      # разовый контейнер с сетью (только проверка)
+git -C sources/patcher pull           # свежая версия патчера
+bash scripts/20_build.sh              # пересобрать песочницу
+bash scripts/30_patch.sh && bash scripts/40_install.sh && bash scripts/50_postinstall.sh
+```
+
+> Не «чини» бинарь вручную при коде `2/3/4` — правильный путь всегда через обновление
+> патчера.
+
+Полные детали (повторный патч после переустановки ОС, откат через `.agybak`,
+переустановка IDE и `app-update.yml`) — в [`docs/UPDATES.md`](docs/UPDATES.md).
 
 ---
 
@@ -107,10 +169,8 @@ export AGY_CLI_ARCHIVE="$HOME/Downloads/agy_cli_linux_x64.tar.gz"
    ```bash
    sudo chown root:root ~/apps/antigravity-ide/chrome-sandbox && sudo chmod 4755 ~/apps/antigravity-ide/chrome-sandbox
    ```
-2. Если `50_postinstall.sh` не смог добавить запись в `/etc/hosts` (нужен пароль sudo):
-   ```bash
-   echo "127.0.0.1 antigravity-cli-auto-updater-974169037036.us-central1.run.app" | sudo tee -a /etc/hosts
-   ```
+2. Если `50_postinstall.sh` не смог добавить запись в `/etc/hosts` (нужен пароль sudo) —
+   выполни команду из раздела «Блокировка апдейтера CLI» выше.
 3. Вход в IDE (ярлык Antigravity) — в **инкогнито-браузере одним Google-аккаунтом**.
 4. Если увидишь `#3501` — это серверная лицензия Google, локально не лечится (детали в `docs/ERRORS.md`).
 
