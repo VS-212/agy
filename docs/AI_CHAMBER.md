@@ -34,16 +34,27 @@ sudo bash scripts/ai_chamber_setup.sh --purge      # удалить комнат
 ### Алиасы (в `~/.bashrc`)
 
 ```bash
-ai-env() { sudo ip netns exec ai_chamber runuser -u aaa -- "$@"; }
-alias ai-room='sudo ip netns exec ai_chamber runuser -u aaa -- bash -li'
-alias ai-agy='sudo ip netns exec ai_chamber runuser -u aaa -- agy'
-alias ai-hermes='sudo ip netns exec ai_chamber runuser -u aaa -- hermes_agent'
-alias ai-kg='sudo ip netns exec ai_chamber runuser -u aaa -- kg'
+# runuser сам НЕ читает ~/.profile => PATH без ~/.local/bin.
+# Обёртка bash -lc подхватывает PATH и окружение из .profile.
+ai-env() {
+  local cmd="$1"; shift
+  local tail=""
+  for a in "$@"; do tail+="$(printf '%q ' "$a")"; done
+  sudo ip netns exec ai_chamber runuser -u aaa -- bash -lc "$cmd $tail"
+}
+ai-room()  { sudo ip netns exec ai_chamber runuser -u aaa -- bash -li; }
+ai-agy()   { ai-env agy "$@"; }
+ai-kg()    { ai-env kg "$@"; }
+ai-hermes(){ ai-env hermes "$@"; }
 ```
 
 - `ai-agy` / `ai-hermes` / `ai-kg chat` — агент сразу в комнате;
 - `ai-env <команда>` — любая разовая команда внутри комнаты;
 - `ai-room` — интерактивный шелл в комнате.
+
+> Бинарь hermes в `~/.local/bin` называется `hermes` (`kg` — это тонкая обёртка
+> `hermes -p kaggle`). Соответственно `ai-hermes` запускает `hermes`, а не
+> `hermes_agent`.
 
 ### Проверка
 
