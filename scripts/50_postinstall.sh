@@ -17,6 +17,7 @@ IDE_DST="$H/apps/antigravity-ide"
 CLI_DST="$H/.local/bin/agy"
 
 log() { echo -e "\n\033[1;34m==>\033[0m $*"; }
+warn() { echo -e "  \033[33m[warn]\033[0m $*"; }
 
 log "1) Автоапдейт IDE — отключить"
 UPD="$IDE_DST/resources/app-update.yml"

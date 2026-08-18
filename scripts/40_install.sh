@@ -19,7 +19,11 @@ log() { echo -e "\n\033[1;34m==>\033[0m $*"; }
 # ---------- 1. IDE ----------
 log "Устанавливаю IDE -> $IDE_DST"
 mkdir -p "$H/apps"
-rm -rf "$IDE_DST"
+if [ -e "$IDE_DST" ]; then
+  OLD="$IDE_DST.old-$(date +%Y%m%d-%H%M%S)"
+  mv "$IDE_DST" "$OLD"
+  echo "  прежняя установка сохранена: $OLD (удали вручную после проверки)"
+fi
 mv "$IDE_SRC" "$IDE_DST"
 chmod +x "$IDE_DST/antigravity"
 echo "  language_server: $IDE_DST/resources/bin/language_server"

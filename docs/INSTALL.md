@@ -31,7 +31,11 @@ docker ps   # должно работать без sudo
 | IDE Antigravity 2.0 | `Antigravity(1).tar.gz` (~163 МБ) | ресурс `resources/` с `language_server` |
 | CLI `agy` | `agy_cli_linux_x64.tar.gz` (~55 МБ) | один бинарь в корне архива |
 
-Если имена отличаются — поправь `scripts/10_sources.sh` (блок «Копирую свежие архивы»).
+Если имена/пути отличаются — не редактируй скрипт, передай пути переменными (см. `docs/SOURCES.md`):
+
+```bash
+AGY_IDE_ARCHIVE=/путь/к/ide.tar.gz AGY_CLI_ARCHIVE=/путь/к/agy.tar.gz bash scripts/10_sources.sh
+```
 
 ## 2. Конвейер
 
