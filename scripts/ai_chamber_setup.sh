@@ -14,6 +14,7 @@
 # Использование:
 #   sudo bash ai_chamber_setup.sh            # создать/пересоздать комнату
 #   sudo bash ai_chamber_setup.sh --systemd  # то же + автозапуск при загрузке
+#   sudo bash ai_chamber_setup.sh --check    # только проверить существующую комнату
 #   sudo bash ai_chamber_setup.sh --purge    # удалить комнату и все правила
 #
 set -euo pipefail
@@ -38,6 +39,7 @@ SYSTEMD=0
 for arg in "$@"; do
   case "$arg" in
     --purge)   MODE=purge ;;
+    --check)   MODE=check ;;
     --systemd) SYSTEMD=1 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Неизвестный аргумент: $arg"; usage; exit 1 ;;
@@ -58,6 +60,41 @@ fi
 UPLINK=$(ip route show default | awk '{print $5; exit}')
 [ -n "$UPLINK" ] || { echo "Не найден интерфейс в интернет (default route)"; exit 1; }
 echo "🌐 Uplink интерфейс: $UPLINK"
+
+# ---------- verify: самопроверка комнаты (созданной и работающей) ----------
+verify() {
+  # netns-нода в /run/netns — это bind-mount ФАЙЛА из nsfs, поэтому `-e`, а не `-d`
+  [ -e "/var/run/netns/$NS" ] || { echo "Комната $NS НЕ существует — сначала: sudo bash $0"; return 1; }
+  echo
+  echo "════════ Проверка комнаты $NS ════════"
+  ip netns exec "$NS" bash -c '
+    echo "--- /etc/resolv.conf комнаты:"
+    cat /etc/resolv.conf
+    echo
+    if dig -h >/dev/null 2>&1; then
+      for d in cloudcode-pa.googleapis.com daily-cloudcode-pa.googleapis.com \
+               generativelanguage.googleapis.com api.anthropic.com api.openai.com \
+               oauth2.googleapis.com; do
+        a=$(dig +short +time=3 +tries=1 A "$d" | tr "\n" " " | sed "s/ $//")
+        printf "%-42s -> %s\n" "$d" "${a:-NODATA}"
+      done
+      who=$(dig +short +time=4 +tries=1 whoami.ds.akahelp.net 2>/dev/null | tr "\n" " ")
+      [ -n "$who" ] && echo "путь резолвера (whoami): $who"
+    fi
+  '
+  echo
+  printf '%s' '--- HTTP(S) до прокси-пула (SNI daily-cloudcode-pa): '
+  if ip netns exec "$NS" timeout 6 bash -c 'exec 3<>/dev/tcp/87.228.47.204/443' 2>/dev/null; then
+    echo "TCP OK"
+  else
+    echo "TCP FAIL (достижимость/фильтрация)"
+  fi
+  echo "--- IPv6 внутри комнаты: $(ip netns exec "$NS" sysctl -n net.ipv6.conf.all.disable_ipv6)"
+  echo "--- Правила FORWARD комнаты:"
+  iptables -L FORWARD -n -v --line-numbers 2>/dev/null | grep -E "AI_CHAMBER|10.77.0.0/30|veth" | head -8 || true
+}
+
+[ "$MODE" = check ] && { verify; exit 0; }
 
 # ---------- teardown (используется и при --purge, и перед пересозданием) ----------
 teardown() {
@@ -150,41 +187,10 @@ iptables -C FORWARD -s "$NET" -j "$CHAIN" 2>/dev/null || \
 trap - ERR
 
 # ---------- 7. проверка ----------
-echo
-echo "════════ Проверка комнаты $NS ════════"
-ip netns exec "$NS" bash -c '
-  echo "--- /etc/resolv.conf комнаты:"
-  cat /etc/resolv.conf
-  echo
-  if dig -h >/dev/null 2>&1; then
-    for d in cloudcode-pa.googleapis.com daily-cloudcode-pa.googleapis.com \
-             generativelanguage.googleapis.com api.anthropic.com api.openai.com \
-             oauth2.googleapis.com; do
-      a=$(dig +short +time=2 +tries=1 A "$d" | tr "\n" " " | sed "s/ $//")
-      printf "%-42s -> %s\n" "$d" "${a:-NODATA}"
-    done
-    who=$(dig +short +time=2 +tries=1 whoami.ds.akahelp.net | tr "\n" " ")
-    echo "путь резолвера (whoami): ${who:-—}"
-  fi
-'
-echo
-printf '--- HTTP(S) до прокси-пула (SNI daily-cloudcode-pa): '
-if ip netns exec "$NS" timeout 6 bash -c 'exec 3<>/dev/tcp/87.228.47.204/443' 2>/dev/null; then
-  echo "TCP OK"
-else
-  echo "TCP FAIL (достижимость/фильтрация)"
-fi
-echo "--- IPv6 внутри комнаты: $(ip netns exec "$NS" sysctl -n net.ipv6.conf.all.disable_ipv6)"
-echo "--- Правила FORWARD комнаты:"
-iptables -L FORWARD -n -v --line-numbers 2>/dev/null | grep -E "AI_CHAMBER|10.77.0.0/30|veth" | head -8 || true
-echo
-echo "Комната готова. Вход:"
-echo "  sudo ip netns exec $NS bash"
-echo "  или алиас ai-room / ai-env / ai-agy / ai-hermes / ai-kg (из вашего .bashrc)"
-
-[ "$SYSTEMD" = 1 ] || exit 0
+verify
 
 # ---------- 8. (опционально) автозапуск при загрузке ----------
+[ "$SYSTEMD" = 1 ] || exit 0
 cat > /etc/systemd/system/ai-chamber.service <<EOF
 [Unit]
 Description=ai_chamber netns (Smart DNS room for agents)
